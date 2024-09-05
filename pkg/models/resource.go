@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/welschmorgan/datagen/internal/generators"
+	"github.com/welschmorgan/datagen/pkg/generators"
 )
 
 type Resource struct {
