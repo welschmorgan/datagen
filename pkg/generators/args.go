@@ -33,3 +33,23 @@ func ParseRange(params ...any) (min, max int64, err error) {
 	}
 	return min, max, nil
 }
+
+func ParseStrings(minRequired int, params ...any) (args []string, err error) {
+	if len(params) != minRequired {
+		return nil, fmt.Errorf("invalid arguments: %v", params)
+	}
+	ret := []string{}
+	for i := range len(params) {
+		var expr string
+		switch t := params[i].(type) {
+		case string:
+			expr = params[i].(string)
+		case *string:
+			expr = *params[i].(*string)
+		default:
+			return nil, fmt.Errorf("invalid argument #%d, expected string but got %T", i, t)
+		}
+		ret = append(ret, expr)
+	}
+	return ret, nil
+}

@@ -4,7 +4,8 @@ import (
 	"fmt"
 )
 
-type GeneratorAllocator func(...any) (Generator, error)
+type GeneratorAllocator func(*GeneratorOptions, ...any) (Generator, error)
+
 type Registry struct {
 	types     map[string]GeneratorAllocator
 	instances map[string]Generator

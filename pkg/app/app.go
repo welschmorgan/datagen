@@ -19,24 +19,56 @@ import (
 
 const DB_FILE string = "resources.db"
 
-func GeneratorForResource(res *models.Resource, reg *generators.Registry) (generators.Generator, error) {
+func GeneratorForResource(options *generators.GeneratorOptions, res *models.Resource, reg *generators.Registry) (generators.Generator, error) {
 	if res.GeneratorName != nil {
-		typeName := res.GeneratorName
-		gen_alloc, err := reg.GetType(*typeName)
+		parts := strings.Split(*res.GeneratorName, ":")
+		typeName := parts[0]
+		gen_alloc, err := reg.GetType(typeName)
 		if err != nil {
 			return nil, err
 		}
-		return gen_alloc(res.Template)
+		params := []interface{}{}
+		if res.Template != nil {
+			params = append(params, res.Template)
+		}
+		if len(parts) > 1 {
+			for _, part := range parts[1:] {
+				params = append(params, part)
+			}
+		}
+		return gen_alloc(options, params...)
 	}
 	return nil, nil
 }
 
-func allocateGeneratorIntRange(params ...any) (generators.Generator, error) {
+func allocateGeneratorIntRange(options *generators.GeneratorOptions, params ...any) (generators.Generator, error) {
 	min, max, err := generators.ParseRange(params...)
 	if err != nil {
 		return nil, err
 	}
-	return generators.NewIntRangeGenerator(min, max), nil
+	return generators.NewIntRangeGenerator(options, min, max), nil
+}
+
+func allocateGeneratorRandomDB(db *sql.DB) generators.GeneratorAllocator {
+	return func(options *generators.GeneratorOptions, params ...any) (generators.Generator, error) {
+		expectedArgs := 2
+		expectedArgNames := "table, filter"
+		args, err := generators.ParseStrings(expectedArgs, params...)
+		if len(args) != 2 {
+			return nil, fmt.Errorf("invalid arguments to RandomDBRowGenerator, expected %d args (%s) but got %d", expectedArgs, expectedArgNames, len(args))
+		}
+		if err != nil {
+			return nil, err
+		}
+		tableName := args[0]
+		parts := strings.Split(args[1], "=")
+		if len(parts) != 2 {
+			return nil, fmt.Errorf("invalid arguments to RandomDBRowGenerator, tableFilter is invalid. Expected 'column=value' but got '%s'", args[1])
+		}
+		tableFilterKey := parts[0]
+		tableFilterValue := parts[1]
+		return generators.NewRandomDBRowGenerator(options, db, tableName, tableFilterKey, tableFilterValue)
+	}
 }
 
 type App struct {
@@ -77,7 +109,7 @@ func (a *App) Init() error {
 	if err := a.initLogging(); err != nil {
 		return err
 	}
-	slog.Debug("Configuration", "app-options", a.options)
+	slog.Debug(fmt.Sprintf("%+v", a.options))
 	var err error
 	a.db, err = sql.Open("sqlite3", DB_FILE)
 	if err != nil {
@@ -87,12 +119,13 @@ func (a *App) Init() error {
 
 	a.reg = generators.NewRegistry()
 	a.reg.AddType(generators.INT_RANGE_GENERATOR_NAME, allocateGeneratorIntRange)
+	a.reg.AddType(generators.RANDOM_DB_ROW_GENERATOR_NAME, allocateGeneratorRandomDB(a.db))
 
 	resources := models.LoadResources(a.db)
 	for _, r := range resources {
 		msg := fmt.Sprint(r)
 		if r.GeneratorName != nil {
-			if g, err := GeneratorForResource(r, a.reg); err != nil {
+			if g, err := GeneratorForResource(&a.options.generator, r, a.reg); err != nil {
 				slog.Error(fmt.Sprintf("%s - %s", msg, err))
 			} else {
 				r.Generator = g
@@ -139,8 +172,12 @@ func (a *App) Run() error {
 
 		go func() {
 			for i := range a.options.count {
-				value_chan <- Result{resource: app_res, generator: gen, round: i, value: gen.Next()}
-				wgGen.Done()
+				if value, err := gen.Next(); err != nil {
+					panic(fmt.Errorf("failed to generate value #%d: %s", i, err))
+				} else {
+					value_chan <- Result{resource: app_res, generator: gen, round: i, value: value}
+					wgGen.Done()
+				}
 			}
 		}()
 		go func() {

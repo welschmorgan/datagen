@@ -8,29 +8,18 @@ import (
 const INT_RANGE_GENERATOR_NAME = "int_range"
 
 type IntRangeGenerator struct {
-	Generator
+	*CacheGenerator
 
-	min  int64
-	max  int64
-	name string
+	min int64
+	max int64
 }
 
-func NewIntRangeGenerator(min, max int64) *IntRangeGenerator {
+func NewIntRangeGenerator(options *GeneratorOptions, min, max int64) *IntRangeGenerator {
 	return &IntRangeGenerator{
-		min:  min,
-		max:  max,
-		name: INT_RANGE_GENERATOR_NAME,
+		CacheGenerator: NewCacheGenerator(options, INT_RANGE_GENERATOR_NAME, func() (string, error) {
+			return fmt.Sprintf("%d", min+rand.Int64N(max-min)), nil
+		}),
+		min: min,
+		max: max,
 	}
-}
-
-func (r *IntRangeGenerator) GetName() string {
-	return r.name
-}
-
-func (r *IntRangeGenerator) SetName(v string) {
-	r.name = v
-}
-
-func (r *IntRangeGenerator) Next() string {
-	return fmt.Sprintf("%d", r.min+rand.Int64N(r.max-r.min))
 }

@@ -1,8 +1,22 @@
 package generators
 
+type GeneratorOptions struct {
+	OnlyUniqueValues     bool
+	MaximumUniqueRetries int
+}
+
+func NewGeneratorOptions() *GeneratorOptions {
+	return &GeneratorOptions{
+		OnlyUniqueValues:     false,
+		MaximumUniqueRetries: 20,
+	}
+}
+
 type Generator interface {
 	GetName() string
 	SetName(string)
 
-	Next() string
+	GetOptions() *GeneratorOptions
+
+	Next() (string, error)
 }

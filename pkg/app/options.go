@@ -32,6 +32,7 @@ type Options struct {
 	resources ResourceList
 	count     int
 	output    OutputFormatter
+	generator generators.GeneratorOptions
 }
 
 type ResourceList []string
@@ -54,10 +55,12 @@ func ParseOptions() *Options {
 		resources: []string{},
 		output:    NewDefaultOutputFormatter(),
 		count:     0,
+		generator: *generators.NewGeneratorOptions(),
 	}
 	flag.BoolVar(&opt.verbose, "verbose", opt.verbose, "show additional log messages")
 	flag.Var(&opt.resources, "resource", "generate a dataset with the specified type")
 	flag.IntVar(&opt.count, "count", DEFAULT_ITEMS_COUNT, "generate this number of items")
+	flag.BoolVar(&opt.generator.OnlyUniqueValues, "unique", opt.generator.OnlyUniqueValues, "only generate unique values")
 	flag.Parse()
 	return &opt
 }
