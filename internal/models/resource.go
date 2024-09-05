@@ -4,34 +4,42 @@ import (
 	"database/sql"
 	"fmt"
 	"log"
+
+	"github.com/welschmorgan/datagen/internal/generators"
 )
 
 type Resource struct {
-	id        int64
-	name      string
-	template  *string
-	generator *string
+	Id            int64
+	Name          string
+	Template      *string
+	GeneratorName *string
+	Generator     generators.Generator
 }
 
 func NewResource(id int64, name string, template *string, generator *string) *Resource {
 	return &Resource{
-		id:        id,
-		name:      name,
-		template:  template,
-		generator: generator,
+		Id:            id,
+		Name:          name,
+		Template:      template,
+		GeneratorName: generator,
+		Generator:     nil,
 	}
 }
 
 func (r *Resource) String() string {
+	return fmt.Sprintf("Resource #%d: %s = %s", r.Id, r.Name, r.FullGeneratorName())
+}
+
+func (r *Resource) FullGeneratorName() string {
 	generator := "<nil>"
-	if r.generator != nil {
-		generator = *r.generator
+	if r.GeneratorName != nil {
+		generator = *r.GeneratorName
 	}
 	template := "<nil>"
-	if r.template != nil {
-		template = *r.template
+	if r.Template != nil {
+		template = *r.Template
 	}
-	return fmt.Sprintf("Resource #%d: %s = %v[\"%v\"]", r.id, r.name, generator, template)
+	return fmt.Sprintf("%s['%s']", generator, template)
 }
 
 func LoadResources(db *sql.DB) []*Resource {
