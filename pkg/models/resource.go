@@ -3,7 +3,7 @@ package models
 import (
 	"database/sql"
 	"fmt"
-	"log"
+	"log/slog"
 
 	"github.com/welschmorgan/datagen/pkg/generators"
 )
@@ -46,7 +46,8 @@ func LoadResources(db *sql.DB) []*Resource {
 	ret := []*Resource{}
 	resources, err := db.Query("select * from resource")
 	if err != nil {
-		log.Fatalf("failed to load resources: %s\n", err)
+		slog.Error("failed to load resources", "err", err)
+		panic("Fatal error")
 	}
 	defer resources.Close()
 	for resources.Next() {
@@ -55,7 +56,8 @@ func LoadResources(db *sql.DB) []*Resource {
 		var template *string
 		var generator *string
 		if err := resources.Scan(&id, &name, &template, &generator); err != nil {
-			log.Fatalf("failed to scan resource: %s\n", err)
+			slog.Error("failed to scan resource", "err", err)
+			panic("Fatal error")
 		}
 		ret = append(ret, NewResource(id, name, template, generator))
 	}

@@ -3,11 +3,14 @@ package app
 import (
 	"database/sql"
 	"fmt"
-	"log"
-	"strconv"
+	"log/slog"
+	"os"
 	"strings"
 	"sync"
+	"time"
 
+	"github.com/MatusOllah/slogcolor"
+	"github.com/fatih/color"
 	_ "github.com/mattn/go-sqlite3"
 
 	"github.com/welschmorgan/datagen/pkg/generators"
@@ -29,27 +32,7 @@ func GeneratorForResource(res *models.Resource, reg *generators.Registry) (gener
 }
 
 func allocateGeneratorIntRange(params ...any) (generators.Generator, error) {
-	if len(params) != 1 {
-		return nil, fmt.Errorf("invalid arguments: %v", params)
-	}
-	var expr string
-	switch t := params[0].(type) {
-	case string:
-		expr = params[0].(string)
-	case *string:
-		expr = *params[0].(*string)
-	default:
-		return nil, fmt.Errorf("invalid argument 0, expected string but got %T", t)
-	}
-	parts := strings.Split(expr, "..")
-	if len(parts) != 2 {
-		return nil, fmt.Errorf("invalid argument 0, expected 'min..max' but got '%s'", params[0])
-	}
-	min, err := strconv.ParseInt(parts[0], 10, 64)
-	if err != nil {
-		return nil, err
-	}
-	max, err := strconv.ParseInt(parts[1], 10, 64)
+	min, max, err := generators.ParseRange(params...)
 	if err != nil {
 		return nil, err
 	}
@@ -71,11 +54,35 @@ func New(opts *Options) *App {
 	}
 }
 
+func (a *App) initLogging() error {
+	level := slog.LevelInfo
+	if a.options.verbose {
+		level = slog.LevelDebug
+	}
+	slog.SetLogLoggerLevel(level)
+	slog.SetDefault(slog.New(slogcolor.NewHandler(os.Stderr, &slogcolor.Options{
+		Level:         level,
+		TimeFormat:    time.RFC3339,
+		SrcFileMode:   slogcolor.ShortFile,
+		SrcFileLength: 0,
+		MsgPrefix:     color.HiWhiteString("| "),
+		MsgLength:     0,
+		MsgColor:      color.New(),
+	})))
+
+	return nil
+}
+
 func (a *App) Init() error {
+	if err := a.initLogging(); err != nil {
+		return err
+	}
+	slog.Debug("Configuration", "app-options", a.options)
 	var err error
 	a.db, err = sql.Open("sqlite3", DB_FILE)
 	if err != nil {
-		log.Fatalf("failed to open resources DB: %s\n", err)
+		slog.Error("failed to open resources DB", "err", err)
+		panic("Fatal error")
 	}
 
 	a.reg = generators.NewRegistry()
@@ -86,14 +93,13 @@ func (a *App) Init() error {
 		msg := fmt.Sprint(r)
 		if r.GeneratorName != nil {
 			if g, err := GeneratorForResource(r, a.reg); err != nil {
-				msg += fmt.Sprintf(" - %s", err)
+				slog.Error(fmt.Sprintf("%s - %s", msg, err))
 			} else {
 				r.Generator = g
 				a.resources = append(a.resources, r)
-				msg += fmt.Sprintf(" - %s", g.GetName())
+				slog.Info(fmt.Sprintf("%s - %s", msg, g.GetName()))
 			}
 		}
-		log.Println(msg)
 	}
 
 	return nil
@@ -110,9 +116,10 @@ func (a *App) GetResource(name string) (*models.Resource, error) {
 
 func (a *App) Run() error {
 	type Result struct {
-		g     generators.Generator
-		round int
-		value string
+		resource  *models.Resource
+		generator generators.Generator
+		round     int
+		value     string
 	}
 
 	value_chan := make(chan Result)
@@ -132,14 +139,14 @@ func (a *App) Run() error {
 
 		go func() {
 			for i := range a.options.count {
-				value_chan <- Result{g: gen, round: i, value: gen.Next()}
+				value_chan <- Result{resource: app_res, generator: gen, round: i, value: gen.Next()}
 				wgGen.Done()
 			}
 		}()
 		go func() {
 			for range a.options.count {
 				res := <-value_chan
-				output := a.options.output.fmt(res.g, res.round, res.value)
+				output := a.options.output.fmt(res.resource, res.generator, res.round, res.value)
 				fmt.Println(output)
 				wgOut.Done()
 			}
@@ -154,7 +161,7 @@ func (a *App) Run() error {
 
 func (a *App) Shutdown() error {
 	if err := a.db.Close(); err != nil {
-		log.Printf("Failed to close DB, %s", err)
+		slog.Warn("Failed to close DB", "err", err)
 	}
 	return nil
 }

@@ -3,16 +3,16 @@ package app
 import (
 	"flag"
 	"fmt"
-	"log"
 	"strings"
 
 	"github.com/welschmorgan/datagen/pkg/generators"
+	"github.com/welschmorgan/datagen/pkg/models"
 )
 
 const DEFAULT_ITEMS_COUNT = 100
 
 type OutputFormatter interface {
-	fmt(g generators.Generator, round int, value string) string
+	fmt(r *models.Resource, g generators.Generator, round int, value string) string
 }
 
 type DefaultOutputFormatter struct {
@@ -23,8 +23,8 @@ func NewDefaultOutputFormatter() *DefaultOutputFormatter {
 	return &DefaultOutputFormatter{}
 }
 
-func (f *DefaultOutputFormatter) fmt(g generators.Generator, round int, value string) string {
-	return fmt.Sprintf("[%s #%d] %s", g.GetName(), round, value)
+func (f *DefaultOutputFormatter) fmt(r *models.Resource, g generators.Generator, round int, value string) string {
+	return fmt.Sprintf("[%s:%s #%d] %s", r.Name, g.GetName(), round, value)
 }
 
 type Options struct {
@@ -59,6 +59,5 @@ func ParseOptions() *Options {
 	flag.Var(&opt.resources, "resource", "generate a dataset with the specified type")
 	flag.IntVar(&opt.count, "count", DEFAULT_ITEMS_COUNT, "generate this number of items")
 	flag.Parse()
-	log.Printf("Options: %+v", opt)
 	return &opt
 }
