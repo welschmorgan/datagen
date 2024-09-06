@@ -1,13 +1,19 @@
 package seed
 
-import "golang.org/x/text/encoding/charmap"
+import (
+	"github.com/welschmorgan/datagen/pkg/config"
+	"github.com/welschmorgan/datagen/pkg/models"
+	"golang.org/x/text/encoding/charmap"
+)
 
 type StdSeed struct {
 	Seed
 
 	name     string
-	typ      string
+	typ      config.SeedType
+	propType string
 	url      string
+	locale   *models.Locale
 	encoding *charmap.Charmap
 
 	fetcher  Fetcher
@@ -15,11 +21,13 @@ type StdSeed struct {
 	uploader Uploader
 }
 
-func NewStdSeed(name, typ, url string, encoding *charmap.Charmap, fetcher Fetcher, parser Parser, uploader Uploader) *StdSeed {
+func NewStdSeed(typ config.SeedType, name, propTyp, url string, locale *models.Locale, encoding *charmap.Charmap, fetcher Fetcher, parser Parser, uploader Uploader) *StdSeed {
 	return &StdSeed{
 		name:     name,
 		typ:      typ,
+		propType: propTyp,
 		url:      url,
+		locale:   locale,
 		encoding: encoding,
 
 		fetcher:  fetcher,
@@ -31,11 +39,17 @@ func NewStdSeed(name, typ, url string, encoding *charmap.Charmap, fetcher Fetche
 func (s *StdSeed) Name() string {
 	return s.name
 }
-func (s *StdSeed) Type() string {
+func (s *StdSeed) Type() config.SeedType {
 	return s.typ
+}
+func (s *StdSeed) PropType() string {
+	return s.propType
 }
 func (s *StdSeed) Url() string {
 	return s.url
+}
+func (s *StdSeed) Locale() *models.Locale {
+	return s.locale
 }
 func (s *StdSeed) Encoding() *charmap.Charmap {
 	return s.encoding

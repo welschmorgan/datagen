@@ -41,7 +41,7 @@ type Stat struct {
 	isExpired   bool
 }
 
-func (c *Cache) assertParentExists(name string) error {
+func (c *Cache) AssertParentExists(name string) error {
 	cachePath := CacheFile(name)
 	cacheDir := filepath.Dir(cachePath)
 	_, cacheDirExistsErr := os.Stat(cacheDir)
@@ -57,7 +57,6 @@ func (c *Cache) Stat(name string) (*Stat, error) {
 	cachePath := CacheFile(name)
 	fi, err := os.Stat(cachePath)
 	if err != nil {
-		slog.Debug(fmt.Sprintf("Stat '%s'", name), "err", err)
 		return nil, err
 	}
 	var lastModTime time.Time = fi.ModTime().Local()
@@ -72,9 +71,9 @@ func (c *Cache) Stat(name string) (*Stat, error) {
 }
 
 func (c *Cache) Open(name string, flags int) (*os.File, error) {
-	c.assertParentExists(name)
+	c.AssertParentExists(name)
 	path := CacheFile(name)
-	slog.Debug("Opening cache file for reading", "name", name, "dir", filepath.Dir(path))
+	slog.Debug("Opening cache file for reading", "path", path)
 	st, err := c.Stat(name)
 	if errors.Is(err, os.ErrNotExist) {
 		return nil, fmt.Errorf("failed to open cache file '%s', %s", path, err)
@@ -85,13 +84,13 @@ func (c *Cache) Open(name string, flags int) (*os.File, error) {
 }
 
 func (c *Cache) Create(name string, flags int) (*os.File, error) {
-	c.assertParentExists(name)
+	c.AssertParentExists(name)
 	path := CacheFile(name)
 	slog.Debug("Opening cache file for writing", "path", path)
 	st, err := c.Stat(name)
-	if !errors.Is(err, os.ErrNotExist) {
+	if err != nil && !errors.Is(err, os.ErrNotExist) {
 		return nil, fmt.Errorf("failed to create cache file '%s', %s", path, err)
-	} else if (flags&FAIL_IF_EXPIRED) != 0 && st != nil && !st.isExpired {
+	} else if err == nil && (flags&FAIL_IF_EXPIRED) != 0 && st != nil && !st.isExpired {
 		return nil, fmt.Errorf("failed to create cache file '%s', not expired yet %s", path, st.expiresAt)
 	}
 	return os.Create(path)

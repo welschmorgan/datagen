@@ -20,15 +20,15 @@ type SeedType int64
 
 const (
 	SeedTypeUnknown SeedType = iota
+	SeedTypeSchema
 	SeedTypeRemote
-	SeedTypeStatic
 	SeedTypeMax
 )
 
 func (st SeedType) String() string {
 	switch st {
-	case SeedTypeStatic:
-		return "static"
+	case SeedTypeSchema:
+		return "schema"
 	case SeedTypeRemote:
 		return "remote"
 	default:
@@ -65,6 +65,7 @@ type SeedConfig struct {
 	PropType  string
 	Url       string
 	Encoding  string
+	Locale    string
 	Parser    string
 }
 
@@ -80,6 +81,7 @@ var defaultConfig *Config = &Config{
 			PropTable: "person",
 			PropType:  "firstName",
 			Url:       "https://www.data.gouv.fr/fr/datasets/r/55cd803a-998d-4a5c-9741-4cd0ee0a7699",
+			Locale:    "fr-FR",
 			Encoding:  charmap.Windows1252.String(),
 			Parser:    "csv(skip_header,delim=;,column=0)",
 		},

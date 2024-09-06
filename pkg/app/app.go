@@ -7,6 +7,7 @@ import (
 	"io/fs"
 	"log/slog"
 	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"time"
@@ -83,6 +84,7 @@ type App struct {
 	options   *Options
 	config    *config.Config
 	resources []*models.Resource
+	locales   []*models.Locale
 }
 
 func New(opts *Options) *App {
@@ -108,6 +110,12 @@ func (a *App) Init() error {
 	dbPath := DBPath()
 	slog.Debug("Database", "path", dbPath)
 
+	dbDir := filepath.Dir(dbPath)
+	if _, err := os.Stat(dbDir); errors.Is(err, os.ErrNotExist) {
+		if err = os.MkdirAll(dbDir, 0755); err != nil {
+			return err
+		}
+	}
 	_, existErr := os.Stat(dbPath)
 	a.db, err = sql.Open("sqlite3", dbPath)
 	if err != nil {

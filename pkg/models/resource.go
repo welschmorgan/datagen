@@ -55,7 +55,7 @@ func LoadResources(db *sql.DB) []*Resource {
 		name := ""
 		var template *string
 		var generator *string
-		if err := resources.Scan(&id, &name, &template, &generator); err != nil {
+		if err := resources.Scan(&id, &name, &generator, &template); err != nil {
 			slog.Error("failed to scan resource", "err", err)
 			panic("Fatal error")
 		}

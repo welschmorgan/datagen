@@ -44,16 +44,16 @@ func (u *BasicUploader) Upload(data []ParserRow) error {
 		}
 		return false
 	}
-	stmt, err := tx.Prepare(fmt.Sprintf("INSERT INTO %s VALUES (NULL, ?, ?)", u.table))
+	stmt, err := tx.Prepare(fmt.Sprintf("INSERT INTO %s VALUES (NULL, ?, ?, ?)", u.table))
 	if err != nil {
 		return fmt.Errorf("failed to prepare insert query, %s", err)
 	}
 	numInserted := 0
 	for i, item := range data {
 		if !propExists(item.value) {
-			_, err := stmt.Exec(u.typ, item.value)
+			_, err := stmt.Exec(item.locale.Id, u.typ, item.value)
 			if err != nil {
-				return fmt.Errorf("failed to insert item #%d '%s': %s", i, item, err)
+				return fmt.Errorf("failed to insert item #%d '%#+v': %s", i, item, err)
 			}
 			numInserted += 1
 		}
