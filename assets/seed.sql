@@ -14,15 +14,15 @@ CREATE TABLE IF NOT EXISTS "person_prop" (
 );
 
 insert or ignore into resource values 
-	(null, "person.firstName", null, "random_row:person_prop:type=firstName"),
-	(null, "person.middleName", null, "random_row:person_prop:type=middleName"),
-	(null, "person.lastName", null, "random_row:person_prop:type=lastName"),
-	(null, "person.nickName", null, "random_row:person_prop:type=nickName"),
+	(null, "person.firstName", "person_prop:type=firstName", "random_row"),
+	(null, "person.middleName", "person_prop:type=middleName", "random_row"),
+	(null, "person.lastName", "person_prop:type=lastName", "random_row"),
+	(null, "person.nickName", "person_prop:type=nickName", "random_row"),
 	(null, "person.age", "0..100", "int_range"),
-	(null, "person.phone", null, "random_row:person_prop:type=nickName"),
+	(null, "person.phone", "person_prop:type=nickName", "random_row"),
 	(null, "person.email", "{firstName}.{lastName}@{provider},{lastName}.{firstName}@{provider},{nickName}@provider", "email"),
-	(null, "location.country", null, "random_row:location_prop:type=country"),
-	(null, "location.town", null, "random_row:location_prop:type=town"),
-	(null, "location.continent", null, "random_row:location_prop:type=continent")
+	(null, "location.country", "location_prop:type=country", "random_row"),
+	(null, "location.town", "location_prop:type=town", "random_row"),
+	(null, "location.continent", "location_prop:type=continent", "random_row")
     ;
 	

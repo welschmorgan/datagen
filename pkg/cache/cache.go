@@ -17,8 +17,12 @@ import (
 
 const CACHE_EXPIRATION_DELAY = time.Hour * 1
 
+func RootCacheDir() string {
+	return configdir.LocalCache("datagen")
+}
+
 func CacheDir() string {
-	return configdir.LocalCache("datagen/downloads")
+	return fmt.Sprintf("%s/%s", RootCacheDir(), "cache")
 }
 
 func CacheFile(name string) string {
@@ -68,6 +72,7 @@ func (c *Cache) Stat(name string) (*Stat, error) {
 }
 
 func (c *Cache) Open(name string, flags int) (*os.File, error) {
+	c.assertParentExists(name)
 	path := CacheFile(name)
 	slog.Debug("Opening cache file for reading", "name", name, "dir", filepath.Dir(path))
 	st, err := c.Stat(name)
@@ -82,9 +87,9 @@ func (c *Cache) Open(name string, flags int) (*os.File, error) {
 func (c *Cache) Create(name string, flags int) (*os.File, error) {
 	c.assertParentExists(name)
 	path := CacheFile(name)
-	slog.Debug("Opening cache file for writing", "name", name, "dir", filepath.Dir(path))
+	slog.Debug("Opening cache file for writing", "path", path)
 	st, err := c.Stat(name)
-	if errors.Is(err, os.ErrNotExist) {
+	if !errors.Is(err, os.ErrNotExist) {
 		return nil, fmt.Errorf("failed to create cache file '%s', %s", path, err)
 	} else if (flags&FAIL_IF_EXPIRED) != 0 && st != nil && !st.isExpired {
 		return nil, fmt.Errorf("failed to create cache file '%s', not expired yet %s", path, st.expiresAt)

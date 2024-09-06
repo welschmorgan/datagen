@@ -7,21 +7,21 @@ import (
 )
 
 func ParseRange(params ...any) (min, max int64, err error) {
-	if len(params) != 1 {
-		return -1, -1, fmt.Errorf("invalid arguments: %v", params)
+	if len(params) != 2 {
+		return -1, -1, fmt.Errorf("invalid arguments, expected ['generator_name', 'min..max'] but got %v", params)
 	}
 	var expr string
-	switch t := params[0].(type) {
+	switch t := params[1].(type) {
 	case string:
-		expr = params[0].(string)
+		expr = params[1].(string)
 	case *string:
-		expr = *params[0].(*string)
+		expr = *params[1].(*string)
 	default:
-		return -1, -1, fmt.Errorf("invalid argument 0, expected string but got %T", t)
+		return -1, -1, fmt.Errorf("invalid argument 1, expected string but got %T", t)
 	}
 	parts := strings.Split(expr, "..")
 	if len(parts) != 2 {
-		return -1, -1, fmt.Errorf("invalid argument 0, expected 'min..max' but got '%s'", params[0])
+		return -1, -1, fmt.Errorf("invalid argument 1, expected 'min..max' but got '%s'", expr)
 	}
 	min, err = strconv.ParseInt(parts[0], 10, 64)
 	if err != nil {

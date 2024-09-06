@@ -15,31 +15,34 @@ import (
 	"github.com/fatih/color"
 	_ "github.com/mattn/go-sqlite3"
 
+	"github.com/welschmorgan/datagen/pkg/cache"
+	"github.com/welschmorgan/datagen/pkg/config"
 	"github.com/welschmorgan/datagen/pkg/generators"
 	"github.com/welschmorgan/datagen/pkg/models"
 	"github.com/welschmorgan/datagen/pkg/seed"
 )
 
-const DB_FILE string = "resources.db"
+func DBPath() string {
+	return fmt.Sprintf("%s/%s", cache.RootCacheDir(), "resources.db")
+}
 
 func GeneratorForResource(options *generators.GeneratorOptions, res *models.Resource, reg *generators.Registry) (generators.Generator, error) {
+	parts := []interface{}{}
 	if res.GeneratorName != nil {
-		parts := strings.Split(*res.GeneratorName, ":")
+		parts = append(parts, *res.GeneratorName)
+	}
+	if res.Template != nil {
+		for _, arg := range strings.Split(*res.Template, ":") {
+			parts = append(parts, arg)
+		}
+	}
+	if res.GeneratorName != nil {
 		typeName := parts[0]
-		gen_alloc, err := reg.GetType(typeName)
+		gen_alloc, err := reg.GetType(typeName.(string))
 		if err != nil {
 			return nil, err
 		}
-		params := []interface{}{}
-		if res.Template != nil {
-			params = append(params, res.Template)
-		}
-		if len(parts) > 1 {
-			for _, part := range parts[1:] {
-				params = append(params, part)
-			}
-		}
-		return gen_alloc(options, params...)
+		return gen_alloc(options, parts...)
 	}
 	return nil, nil
 }
@@ -54,17 +57,17 @@ func allocateGeneratorIntRange(options *generators.GeneratorOptions, params ...a
 
 func allocateGeneratorRandomDB(db *sql.DB) generators.GeneratorAllocator {
 	return func(options *generators.GeneratorOptions, params ...any) (generators.Generator, error) {
-		expectedArgs := 2
-		expectedArgNames := "table, filter"
+		expectedArgs := 3
+		expectedArgNames := "'random_row', table, filter"
 		args, err := generators.ParseStrings(expectedArgs, params...)
-		if len(args) != 2 {
-			return nil, fmt.Errorf("invalid arguments to RandomDBRowGenerator, expected %d args (%s) but got %d", expectedArgs, expectedArgNames, len(args))
+		if len(args) != expectedArgs {
+			return nil, fmt.Errorf("invalid arguments to RandomDBRowGenerator, expected %d args (%s) but got %d\n%s", expectedArgs, expectedArgNames, len(args), err)
 		}
 		if err != nil {
 			return nil, err
 		}
-		tableName := args[0]
-		parts := strings.Split(args[1], "=")
+		tableName := args[1]
+		parts := strings.Split(args[2], "=")
 		if len(parts) != 2 {
 			return nil, fmt.Errorf("invalid arguments to RandomDBRowGenerator, tableFilter is invalid. Expected 'column=value' but got '%s'", args[1])
 		}
@@ -78,6 +81,7 @@ type App struct {
 	db        *sql.DB
 	reg       *generators.Registry
 	options   *Options
+	config    *config.Config
 	resources []*models.Resource
 }
 
@@ -86,6 +90,7 @@ func New(opts *Options) *App {
 		db:      nil,
 		reg:     nil,
 		options: opts,
+		config:  config.Default(),
 	}
 }
 
@@ -94,9 +99,17 @@ func (a *App) Init() error {
 	if err = a.initLogging(); err != nil {
 		return err
 	}
-	slog.Debug(fmt.Sprintf("%+v", a.options))
-	_, existErr := os.Stat(DB_FILE)
-	a.db, err = sql.Open("sqlite3", DB_FILE)
+	if err = a.config.Init(config.DefaultPath()); err != nil {
+		return err
+	}
+	slog.Debug("Command-line options", "value", a.options)
+	slog.Debug("User configuration", "path", config.DefaultPath())
+	slog.Debug("Data directory", "path", cache.RootCacheDir())
+	dbPath := DBPath()
+	slog.Debug("Database", "path", dbPath)
+
+	_, existErr := os.Stat(dbPath)
+	a.db, err = sql.Open("sqlite3", dbPath)
 	if err != nil {
 		slog.Error("failed to open DB", "err", err)
 		panic("Fatal error")
@@ -118,14 +131,17 @@ func (a *App) Init() error {
 
 	resources := models.LoadResources(a.db)
 	for _, r := range resources {
-		msg := fmt.Sprint(r)
+		tpl := ""
+		if r.Template != nil {
+			tpl = *r.Template
+		}
 		if r.GeneratorName != nil {
 			if g, err := GeneratorForResource(&a.options.generator, r, a.reg); err != nil {
-				slog.Error(fmt.Sprintf("%s - %s", msg, err))
+				slog.Error(fmt.Sprintf("Invalid resource #%d '%s'", r.Id, r.Name), "err", err, "generator", *r.GeneratorName, "template", tpl)
 			} else {
 				r.Generator = g
 				a.resources = append(a.resources, r)
-				slog.Info(fmt.Sprintf("%s - %s", msg, g.GetName()))
+				slog.Debug(fmt.Sprintf("Found resource #%d '%s'", r.Id, r.Name), "generator", *r.GeneratorName, "template", tpl)
 			}
 		}
 	}
@@ -192,7 +208,11 @@ func (a *App) Generate() error {
 }
 
 func (a *App) Seed() error {
-	return seed.NewDefaultSeeder(a.db).Seed()
+	seeder, err := seed.NewSeederFromConfig(a.db, a.config)
+	if err != nil {
+		return err
+	}
+	return seeder.Seed()
 }
 
 func (a *App) Shutdown() error {
