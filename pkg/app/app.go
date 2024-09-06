@@ -2,7 +2,9 @@ package app
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
+	"io/fs"
 	"log/slog"
 	"os"
 	"strings"
@@ -15,6 +17,7 @@ import (
 
 	"github.com/welschmorgan/datagen/pkg/generators"
 	"github.com/welschmorgan/datagen/pkg/models"
+	"github.com/welschmorgan/datagen/pkg/seed"
 )
 
 const DB_FILE string = "resources.db"
@@ -86,35 +89,27 @@ func New(opts *Options) *App {
 	}
 }
 
-func (a *App) initLogging() error {
-	level := slog.LevelInfo
-	if a.options.verbose {
-		level = slog.LevelDebug
-	}
-	slog.SetLogLoggerLevel(level)
-	slog.SetDefault(slog.New(slogcolor.NewHandler(os.Stderr, &slogcolor.Options{
-		Level:         level,
-		TimeFormat:    time.RFC3339,
-		SrcFileMode:   slogcolor.ShortFile,
-		SrcFileLength: 0,
-		MsgPrefix:     color.HiWhiteString("| "),
-		MsgLength:     0,
-		MsgColor:      color.New(),
-	})))
-
-	return nil
-}
-
 func (a *App) Init() error {
-	if err := a.initLogging(); err != nil {
+	var err error
+	if err = a.initLogging(); err != nil {
 		return err
 	}
 	slog.Debug(fmt.Sprintf("%+v", a.options))
-	var err error
+	_, existErr := os.Stat(DB_FILE)
 	a.db, err = sql.Open("sqlite3", DB_FILE)
 	if err != nil {
-		slog.Error("failed to open resources DB", "err", err)
+		slog.Error("failed to open DB", "err", err)
 		panic("Fatal error")
+	}
+	if errors.Is(existErr, fs.ErrNotExist) {
+		slog.Warn("DB does not exist, creating now ...")
+		if err = a.Seed(); err != nil {
+			return fmt.Errorf("failed to create DB, %s", err)
+		}
+	} else if a.options.seed {
+		if err = a.Seed(); err != nil {
+			return fmt.Errorf("failed to seed DB, %s", err)
+		}
 	}
 
 	a.reg = generators.NewRegistry()
@@ -147,7 +142,7 @@ func (a *App) GetResource(name string) (*models.Resource, error) {
 	return nil, fmt.Errorf("failed to find resource '%s'", name)
 }
 
-func (a *App) Run() error {
+func (a *App) Generate() error {
 	type Result struct {
 		resource  *models.Resource
 		generator generators.Generator
@@ -196,9 +191,32 @@ func (a *App) Run() error {
 	return nil
 }
 
+func (a *App) Seed() error {
+	return seed.NewDefaultSeeder(a.db).Seed()
+}
+
 func (a *App) Shutdown() error {
 	if err := a.db.Close(); err != nil {
 		slog.Warn("Failed to close DB", "err", err)
 	}
+	return nil
+}
+
+func (a *App) initLogging() error {
+	level := slog.LevelInfo
+	if a.options.verbose {
+		level = slog.LevelDebug
+	}
+	slog.SetLogLoggerLevel(level)
+	slog.SetDefault(slog.New(slogcolor.NewHandler(os.Stderr, &slogcolor.Options{
+		Level:         level,
+		TimeFormat:    time.RFC3339,
+		SrcFileMode:   slogcolor.ShortFile,
+		SrcFileLength: 0,
+		MsgPrefix:     color.HiWhiteString("| "),
+		MsgLength:     0,
+		MsgColor:      color.New(),
+	})))
+
 	return nil
 }
