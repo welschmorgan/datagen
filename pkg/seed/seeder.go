@@ -1,14 +1,17 @@
 package seed
 
 import (
+	"archive/zip"
 	"bytes"
 	"database/sql"
 	_ "embed"
 	"fmt"
 	"io"
 	"log/slog"
+	"path/filepath"
 	"strings"
 
+	"github.com/welschmorgan/datagen/pkg/cache"
 	"github.com/welschmorgan/datagen/pkg/config"
 	"github.com/welschmorgan/datagen/pkg/models"
 	"golang.org/x/text/encoding/charmap"
@@ -32,7 +35,7 @@ func NewSeeder(db *sql.DB, seeds []Seed) *Seeder {
 func NewSeederFromConfig(db *sql.DB, c *config.Config) (*Seeder, error) {
 	seeds := []Seed{}
 	if DEFAULT_SEED_SCHEMA != nil {
-		seeds = append(seeds, NewStdSeed(config.SeedTypeSchema, "schema", "resource", "assets/seed.sql", nil, nil, nil, nil, NewQueryUploader(db, *DEFAULT_SEED_SCHEMA)))
+		seeds = append(seeds, NewStdSeed(config.SeedTypeSchema, "schema", "resource", "assets/seed.sql", nil, nil, nil, nil, nil, NewQueryUploader(db, *DEFAULT_SEED_SCHEMA)))
 	}
 	charmap := func(name string) (*charmap.Charmap, error) {
 		for _, enc := range charmap.All {
@@ -65,7 +68,7 @@ func NewSeederFromConfig(db *sql.DB, c *config.Config) (*Seeder, error) {
 			Id:   0,
 			Name: seed.Locale,
 		}
-		seeds = append(seeds, NewStdSeed(seed.Type, seed.Name, seed.PropType, seed.Url, loc, cm, fetcher, parser, uploader))
+		seeds = append(seeds, NewStdSeed(seed.Type, seed.Name, seed.PropType, seed.Url, loc, cm, seed.ExtractedName, fetcher, parser, uploader))
 	}
 	return NewSeeder(db, seeds), nil
 }
@@ -81,21 +84,54 @@ func (seeder *Seeder) Seed() error {
 		}
 		return nil
 	}
+	archiveExts := []string{
+		".zip",
+		".7z",
+		".tar",
+		".tar.gz",
+		".tar.bz",
+		".tar.bz2",
+		".tar.xz",
+	}
+	isArchive := func(path string) bool {
+		ret := false
+		for _, forbiddenExt := range archiveExts {
+			if strings.EqualFold(forbiddenExt, filepath.Ext(filepath.Base(path))) {
+				ret = true
+				break
+			}
+		}
+		return ret
+	}
 	for _, s := range seeder.seeds {
 		slog.Warn(fmt.Sprintf("Seeding '%s' from %s", s.Name(), s.Url()))
 		var content []byte
 		var err error
 		var rows []ParserRow
 		var loc *models.Locale
+		var path string
 		if s.Locale() != nil {
 			loc = locale(s.Locale().Name)
 		}
+		if isArchive(s.Url()) && s.ExtractedName() == nil {
+			err = fmt.Errorf("cannot extract archive if ExtractedName property is not defined")
+			slog.Error(fmt.Sprint(err), "url", s.Url())
+			errs = append(errs, err)
+			continue
+		}
 		if s.Fetcher() != nil {
-			content, err = s.Fetcher().Fetch(s.Url())
+			content, err = s.Fetcher().Fetch(s.Url(), &path)
 			if err != nil {
 				slog.Error("Failed to fetch seed", "err", err, "url", s.Url())
 				errs = append(errs, err)
 				continue
+			}
+			if isArchive(s.Url()) {
+				if content, err = seeder.Extract(content, *s.ExtractedName()); err != nil {
+					slog.Error("Failed to extract seed's archive", "err", err, "url", s.Url())
+					errs = append(errs, err)
+					continue
+				}
 			}
 		}
 		if s.Parser() != nil {
@@ -111,6 +147,7 @@ func (seeder *Seeder) Seed() error {
 				utf8Data = content
 			}
 
+			slog.Debug("Parsing seed", "name", s.Name())
 			rows, err = s.Parser().Parse(loc, s.Url(), utf8Data)
 			if err != nil {
 				slog.Error("Failed to parse seed", "err", err, "url", s.Url())
@@ -121,6 +158,7 @@ func (seeder *Seeder) Seed() error {
 			// 	slog.Debug("Parsed row", "id", id, "value", row)
 			// }
 		}
+		slog.Debug("Uploading seed", "name", s.Name())
 		if s.Uploader() != nil {
 			if err = s.Uploader().Upload(rows); err != nil {
 				slog.Error("Failed to upload seed to DB", "err", err, "url", s.Url(), "numRows", len(rows))
@@ -143,4 +181,40 @@ func (seeder *Seeder) Seed() error {
 		return fmt.Errorf("there were errors while seeding DB:\n%s", strings.Join(msg, "\n - "))
 	}
 	return nil
+}
+
+func (seeder *Seeder) Extract(archiveContent []byte, fileNameToExtract string) (extractedContent []byte, err error) {
+	slog.Debug("Extracting seed file", "name", fileNameToExtract)
+	cacheFile, err := cache.GetCache().Create(fileNameToExtract, 0)
+	if err != nil {
+		return nil, err
+	}
+	defer cacheFile.Close()
+	var r *zip.Reader
+	if r, err = zip.NewReader(bytes.NewReader(archiveContent), int64(len(archiveContent))); err != nil {
+		return nil, err
+	}
+	var found *zip.File
+	for _, f := range r.File {
+		if strings.EqualFold(f.Name, fileNameToExtract) {
+			found = f
+			break
+		}
+	}
+	if found == nil {
+		return nil, fmt.Errorf("couldn't find file '%s'", fileNameToExtract)
+	}
+	f, err := found.Open()
+	if err != nil {
+		return nil, fmt.Errorf("failed to open archive entry '%s', %s", fileNameToExtract, err)
+	}
+	defer f.Close()
+	content, err := io.ReadAll(f)
+	if err != nil {
+		return nil, err
+	}
+	if _, err := cacheFile.Write(content); err != nil {
+		return nil, err
+	}
+	return content, nil
 }

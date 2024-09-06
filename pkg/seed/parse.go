@@ -38,7 +38,7 @@ type CSVParser struct {
 func NewCSVParser(header bool, delimiter string, desiredColumn int) *CSVParser {
 	return &CSVParser{
 		skipHeader:    header,
-		delimiter:     delimiter,
+		delimiter:     strings.ReplaceAll(strings.ReplaceAll(delimiter, "\\t", "\t"), "\\n", "\n"),
 		desiredColumn: desiredColumn,
 	}
 }
@@ -61,7 +61,8 @@ func (p *CSVParser) Parse(locale *models.Locale, url string, data []byte) ([]Par
 		if p.desiredColumn >= len(cells) {
 			return nil, fmt.Errorf("invalid data fetched from '%s', desired column #%d cannot be accessed (only %d available)", url, p.desiredColumn, len(cells))
 		}
-		ret = append(ret, *NewParserRow(locale, cells[p.desiredColumn], nil))
+		cell := cells[p.desiredColumn]
+		ret = append(ret, *NewParserRow(locale, cell, nil))
 	}
 	return ret, nil
 }

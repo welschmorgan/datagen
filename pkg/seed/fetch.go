@@ -11,7 +11,7 @@ import (
 )
 
 type Fetcher interface {
-	Fetch(url string) ([]byte, error)
+	Fetch(url string, path *string) ([]byte, error)
 }
 
 type RemoteFetcher struct {
@@ -22,7 +22,7 @@ func NewRemoteFetcher() *RemoteFetcher {
 	return &RemoteFetcher{}
 }
 
-func (f *RemoteFetcher) Fetch(url string) ([]byte, error) {
+func (f *RemoteFetcher) Fetch(url string, path *string) ([]byte, error) {
 	slog.Debug(fmt.Sprintf("Fetching %s", url))
 	file, err := cache.GetCache().OpenOrRetrieve(url, func() (*bytes.Buffer, error) {
 		var buffer *bytes.Buffer = bytes.NewBuffer([]byte{})
@@ -40,7 +40,15 @@ func (f *RemoteFetcher) Fetch(url string) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	return io.ReadAll(file)
+	defer file.Close()
+	if path != nil {
+		*path = cache.CacheFile(url)
+	}
+	if content, err := io.ReadAll(file); err != nil {
+		return nil, err
+	} else {
+		return content, nil
+	}
 }
 
 type StaticFetcher struct {

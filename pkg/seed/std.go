@@ -9,30 +9,31 @@ import (
 type StdSeed struct {
 	Seed
 
-	name     string
-	typ      config.SeedType
-	propType string
-	url      string
-	locale   *models.Locale
-	encoding *charmap.Charmap
+	name          string
+	typ           config.SeedType
+	propType      string
+	url           string
+	locale        *models.Locale
+	encoding      *charmap.Charmap
+	extractedName *string
 
 	fetcher  Fetcher
 	parser   Parser
 	uploader Uploader
 }
 
-func NewStdSeed(typ config.SeedType, name, propTyp, url string, locale *models.Locale, encoding *charmap.Charmap, fetcher Fetcher, parser Parser, uploader Uploader) *StdSeed {
+func NewStdSeed(typ config.SeedType, name, propTyp, url string, locale *models.Locale, encoding *charmap.Charmap, extractedName *string, fetcher Fetcher, parser Parser, uploader Uploader) *StdSeed {
 	return &StdSeed{
-		name:     name,
-		typ:      typ,
-		propType: propTyp,
-		url:      url,
-		locale:   locale,
-		encoding: encoding,
-
-		fetcher:  fetcher,
-		parser:   parser,
-		uploader: uploader,
+		name:          name,
+		typ:           typ,
+		propType:      propTyp,
+		url:           url,
+		locale:        locale,
+		encoding:      encoding,
+		extractedName: extractedName,
+		fetcher:       fetcher,
+		parser:        parser,
+		uploader:      uploader,
 	}
 }
 
@@ -63,4 +64,7 @@ func (s *StdSeed) Parser() Parser {
 }
 func (s *StdSeed) Uploader() Uploader {
 	return s.uploader
+}
+func (s *StdSeed) ExtractedName() *string {
+	return s.extractedName
 }

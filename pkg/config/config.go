@@ -59,14 +59,15 @@ func (st *SeedType) UnmarshalJSON(data []byte) error {
 }
 
 type SeedConfig struct {
-	Type      SeedType
-	Name      string
-	PropTable string
-	PropType  string
-	Url       string
-	Encoding  string
-	Locale    string
-	Parser    string
+	Type          SeedType
+	Name          string
+	PropTable     string
+	PropType      string
+	Url           string
+	ExtractedName *string
+	Encoding      string
+	Locale        string
+	Parser        string
 }
 
 type Config struct {
