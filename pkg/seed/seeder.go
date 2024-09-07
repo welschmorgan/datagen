@@ -68,7 +68,7 @@ func NewSeederFromConfig(db *sql.DB, c *config.Config) (*Seeder, error) {
 			Id:   0,
 			Name: seed.Locale,
 		}
-		seeds = append(seeds, NewStdSeed(seed.Type, seed.Name, seed.PropType, seed.Url, loc, cm, seed.ExtractedName, fetcher, parser, uploader))
+		seeds = append(seeds, NewStdSeed(seed.Type, seed.Name, seed.PropType, seed.Url, loc, cm, seed.ExtractFile, fetcher, parser, uploader))
 	}
 	return NewSeeder(db, seeds), nil
 }
@@ -113,8 +113,8 @@ func (seeder *Seeder) Seed() error {
 		if s.Locale() != nil {
 			loc = locale(s.Locale().Name)
 		}
-		if isArchive(s.Url()) && s.ExtractedName() == nil {
-			err = fmt.Errorf("cannot extract archive if ExtractedName property is not defined")
+		if isArchive(s.Url()) && s.ExtractFile() == nil {
+			err = fmt.Errorf("cannot extract archive if ExtractFile property is not defined")
 			slog.Error(fmt.Sprint(err), "url", s.Url())
 			errs = append(errs, err)
 			continue
@@ -127,7 +127,7 @@ func (seeder *Seeder) Seed() error {
 				continue
 			}
 			if isArchive(s.Url()) {
-				if content, err = seeder.Extract(content, *s.ExtractedName()); err != nil {
+				if content, err = seeder.Extract(content, *s.ExtractFile()); err != nil {
 					slog.Error("Failed to extract seed's archive", "err", err, "url", s.Url())
 					errs = append(errs, err)
 					continue

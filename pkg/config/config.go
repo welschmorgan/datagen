@@ -59,20 +59,22 @@ func (st *SeedType) UnmarshalJSON(data []byte) error {
 }
 
 type SeedConfig struct {
-	Type          SeedType
-	Name          string
-	PropTable     string
-	PropType      string
-	Url           string
-	ExtractedName *string
-	Encoding      string
-	Locale        string
-	Parser        string
+	Type        SeedType
+	Name        string
+	PropTable   string
+	PropType    string
+	Url         string
+	ExtractFile *string
+	Encoding    string
+	Locale      string
+	Parser      string
 }
 
 type Config struct {
 	Seeds []SeedConfig
 }
+
+var PERSON_LAST_NAME_EXTRACT_FILE string = "noms2008nat_txt.txt"
 
 var defaultConfig *Config = &Config{
 	Seeds: []SeedConfig{
@@ -85,6 +87,16 @@ var defaultConfig *Config = &Config{
 			Locale:    "fr-FR",
 			Encoding:  charmap.Windows1252.String(),
 			Parser:    "csv(skip_header,delim=;,column=0)",
+		}, {
+			Type:        SeedTypeRemote,
+			Name:        "[fr] person.lastName",
+			PropTable:   "person",
+			PropType:    "lastName",
+			Url:         "https://www.insee.fr/fr/statistiques/fichier/3536630/noms2008nat_txt.zip",
+			ExtractFile: &PERSON_LAST_NAME_EXTRACT_FILE,
+			Encoding:    "Windows 1252",
+			Locale:      "fr-FR",
+			Parser:      "csv(skip_header,delim=\\t,column=0)",
 		},
 	},
 }

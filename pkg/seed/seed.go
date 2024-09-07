@@ -10,7 +10,7 @@ type Seed interface {
 	Name() string
 	Type() config.SeedType
 	PropType() string
-	ExtractedName() *string
+	ExtractFile() *string
 	Url() string
 	Locale() *models.Locale
 	Encoding() *charmap.Charmap
