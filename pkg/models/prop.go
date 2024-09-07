@@ -21,6 +21,18 @@ func NewProp(id int64, locale_id int64, typ, value string) *Prop {
 	}
 }
 
+func LoadPropsAsMap(db *sql.DB, table string, typ *string, value *string, key func(*Prop) string) (map[string]*Prop, error) {
+	props, err := LoadProps(db, table, typ, value)
+	if err != nil {
+		return nil, err
+	}
+	ret := make(map[string]*Prop)
+	for _, prop := range props {
+		ret[key(prop)] = prop
+	}
+	return ret, nil
+}
+
 func LoadProps(db *sql.DB, table string, typ *string, value *string) ([]*Prop, error) {
 	rawQuery := fmt.Sprintf("SELECT id, locale_id, type, value FROM %s WHERE 1=1", table)
 	var res *sql.Rows

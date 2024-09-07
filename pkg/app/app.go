@@ -122,6 +122,7 @@ func (a *App) Init() error {
 	}
 	_, existErr := os.Stat(dbPath)
 	a.db, err = sql.Open("sqlite3", dbPath)
+	a.db.SetMaxOpenConns(1)
 	if err != nil {
 		slog.Error("failed to open DB", "err", err)
 		panic("Fatal error")

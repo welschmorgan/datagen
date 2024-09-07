@@ -104,10 +104,10 @@ func (seeder *Seeder) Seed() error {
 		return ret
 	}
 	for _, s := range seeder.seeds {
-		slog.Warn(fmt.Sprintf("Seeding '%s' from %s", s.Name(), s.Url()))
+		slog.Warn(fmt.Sprintf("Seeding '%s'", s.Name()))
 		var content []byte
 		var err error
-		var rows []ParserRow
+		var rows []*ParserRow
 		var loc *models.Locale
 		var path string
 		if s.Locale() != nil {

@@ -10,6 +10,7 @@ import (
 )
 
 type ParserRow struct {
+	id      int64
 	locale  *models.Locale
 	value   string
 	context map[string]string
@@ -17,6 +18,7 @@ type ParserRow struct {
 
 func NewParserRow(locale *models.Locale, value string, context map[string]string) *ParserRow {
 	return &ParserRow{
+		id:      -1,
 		locale:  locale,
 		value:   value,
 		context: context,
@@ -24,7 +26,7 @@ func NewParserRow(locale *models.Locale, value string, context map[string]string
 }
 
 type Parser interface {
-	Parse(locale *models.Locale, url string, data []byte) ([]ParserRow, error)
+	Parse(locale *models.Locale, url string, data []byte) ([]*ParserRow, error)
 }
 
 type CSVParser struct {
@@ -43,10 +45,10 @@ func NewCSVParser(header bool, delimiter string, desiredColumn int) *CSVParser {
 	}
 }
 
-func (p *CSVParser) Parse(locale *models.Locale, url string, data []byte) ([]ParserRow, error) {
+func (p *CSVParser) Parse(locale *models.Locale, url string, data []byte) ([]*ParserRow, error) {
 	lines := strings.Split(string(data), "\n")
 	gotHeader := false
-	ret := []ParserRow{}
+	ret := []*ParserRow{}
 	for _, line := range lines {
 		line = strings.TrimSpace(line)
 		if len(line) == 0 {
@@ -62,7 +64,9 @@ func (p *CSVParser) Parse(locale *models.Locale, url string, data []byte) ([]Par
 			return nil, fmt.Errorf("invalid data fetched from '%s', desired column #%d cannot be accessed (only %d available)", url, p.desiredColumn, len(cells))
 		}
 		cell := cells[p.desiredColumn]
-		ret = append(ret, *NewParserRow(locale, cell, nil))
+		row := NewParserRow(locale, cell, nil)
+		row.id = int64(len(ret))
+		ret = append(ret, row)
 	}
 	return ret, nil
 }
