@@ -10,3 +10,11 @@ $(DIST_DIR): $(TARGET)
 
 $(TARGET): $(SOURCES)
 	go build -o $@ main.go
+
+clean:
+	go clean
+	rm -f $(TARGET)
+
+re: clean all
+
+.PHONY: re clean all $(DIST_DIR)

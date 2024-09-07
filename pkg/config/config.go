@@ -145,6 +145,11 @@ func (c *Config) Save(path string) error {
 	return nil
 }
 
+func (c *Config) Reset(path string) error {
+	*c = *Default()
+	return c.Save(path)
+}
+
 func (c *Config) Init(path string) error {
 	cfg := Default()
 	dir := filepath.Dir(path)

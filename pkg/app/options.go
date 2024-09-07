@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/welschmorgan/datagen/pkg/config"
 	"github.com/welschmorgan/datagen/pkg/generators"
 	"github.com/welschmorgan/datagen/pkg/models"
 )
@@ -28,12 +29,14 @@ func (f *DefaultOutputFormatter) fmt(r *models.Resource, g generators.Generator,
 }
 
 type Options struct {
-	verbose   bool
-	resources ResourceList
-	count     int
-	output    OutputFormatter
-	generator generators.GeneratorOptions
-	seed      bool
+	verbose     bool
+	resources   ResourceList
+	count       int
+	output      OutputFormatter
+	generator   generators.GeneratorOptions
+	seed        bool
+	resetConfig bool
+	configPath  string
 }
 
 type ResourceList []string
@@ -52,18 +55,22 @@ func (l *ResourceList) Set(value string) error {
 
 func ParseOptions() *Options {
 	opt := Options{
-		verbose:   false,
-		resources: []string{},
-		output:    NewDefaultOutputFormatter(),
-		count:     0,
-		generator: *generators.NewGeneratorOptions(),
-		seed:      false,
+		verbose:     false,
+		resources:   []string{},
+		output:      NewDefaultOutputFormatter(),
+		count:       0,
+		generator:   *generators.NewGeneratorOptions(),
+		seed:        false,
+		resetConfig: false,
+		configPath:  config.DefaultPath(),
 	}
 	flag.BoolVar(&opt.verbose, "verbose", opt.verbose, "show additional log messages")
 	flag.Var(&opt.resources, "resource", "generate a dataset with the specified type")
 	flag.IntVar(&opt.count, "count", DEFAULT_ITEMS_COUNT, "generate this number of items")
 	flag.BoolVar(&opt.generator.OnlyUniqueValues, "unique", opt.generator.OnlyUniqueValues, "only generate unique values")
 	flag.BoolVar(&opt.seed, "seed", opt.seed, "seed DB from various places")
+	flag.BoolVar(&opt.resetConfig, "reset-config", opt.resetConfig, "reset configuration to default values")
+	flag.StringVar(&opt.configPath, "config-path", opt.configPath, "define the user configuration path to be loaded")
 	flag.Parse()
 	return &opt
 }

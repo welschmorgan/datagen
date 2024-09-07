@@ -101,11 +101,15 @@ func (a *App) Init() error {
 	if err = a.initLogging(); err != nil {
 		return err
 	}
-	if err = a.config.Init(config.DefaultPath()); err != nil {
+	if a.options.resetConfig {
+		if err = a.config.Reset(a.options.configPath); err != nil {
+			return err
+		}
+	} else if err = a.config.Init(a.options.configPath); err != nil {
 		return err
 	}
 	slog.Debug("Command-line options", "value", a.options)
-	slog.Debug("User configuration", "path", config.DefaultPath())
+	slog.Debug("User configuration", "path", a.options.configPath)
 	slog.Debug("Data directory", "path", cache.RootCacheDir())
 	dbPath := DBPath()
 	slog.Debug("Database", "path", dbPath)
