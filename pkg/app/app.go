@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"log"
 	"log/slog"
 	"os"
 	"path/filepath"
@@ -46,6 +47,24 @@ func GeneratorForResource(options *generators.GeneratorOptions, res *models.Reso
 		return gen_alloc(options, parts...)
 	}
 	return nil, nil
+}
+
+func allocateGeneratorPattern(options *generators.GeneratorOptions, params ...any) (generators.Generator, error) {
+	pattern, err := generators.ParsePattern(params...)
+	if err != nil {
+		return nil, err
+	}
+	return generators.NewPatternGenerator(options, pattern), nil
+}
+
+func allocateGeneratorUnion(db *sql.DB, resGetter func(name string) generators.Generator) generators.GeneratorAllocator {
+	return func(options *generators.GeneratorOptions, params ...any) (generators.Generator, error) {
+		variants, err := generators.ParseUnion(params...)
+		if err != nil {
+			return nil, err
+		}
+		return generators.NewUnionGenerator(db, options, variants, resGetter), nil
+	}
 }
 
 func allocateGeneratorIntRange(options *generators.GeneratorOptions, params ...any) (generators.Generator, error) {
@@ -141,6 +160,16 @@ func (a *App) Init() error {
 	a.reg = generators.NewRegistry()
 	a.reg.AddType(generators.INT_RANGE_GENERATOR_NAME, allocateGeneratorIntRange)
 	a.reg.AddType(generators.RANDOM_DB_ROW_GENERATOR_NAME, allocateGeneratorRandomDB(a.db))
+	a.reg.AddType(generators.PATTERN_GENERATOR_NAME, allocateGeneratorPattern)
+	a.reg.AddType(generators.UNION_GENERATOR_NAME, allocateGeneratorUnion(a.db, func(name string) generators.Generator {
+		res, err := a.GetResource(name)
+		if err != nil {
+			log.Printf("Failed to get variant '%s' generator, %s", name, err)
+			return nil
+		}
+
+		return res.Generator
+	}))
 
 	resources := models.LoadResources(a.db)
 	for _, r := range resources {

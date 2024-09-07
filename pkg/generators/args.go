@@ -6,6 +6,20 @@ import (
 	"strings"
 )
 
+func ParsePattern(params ...any) (pattern string, err error) {
+	if len(params) != 2 {
+		return "", fmt.Errorf("invalid arguments, expected ['generator_name', 'pattern'] but got %v", params)
+	}
+	return params[1].(string), nil
+}
+
+func ParseUnion(params ...any) (pattern []string, err error) {
+	if len(params) != 2 {
+		return nil, fmt.Errorf("invalid arguments, expected ['generator_name', 'pattern'] but got %v", params)
+	}
+	return strings.Split(params[1].(string), "|"), nil
+}
+
 func ParseRange(params ...any) (min, max int64, err error) {
 	if len(params) != 2 {
 		return -1, -1, fmt.Errorf("invalid arguments, expected ['generator_name', 'min..max'] but got %v", params)
