@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 
-	"github.com/welschmorgan/datagen/pkg/generators"
+	"github.com/welschmorgan/datagen/pkg/generator"
 )
 
 type Resource struct {
@@ -13,7 +13,7 @@ type Resource struct {
 	Name          string
 	Template      *string
 	GeneratorName *string
-	Generator     generators.Generator
+	Generator     generator.Generator
 }
 
 func NewResource(id int64, name string, template *string, generator *string) *Resource {

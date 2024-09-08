@@ -1,19 +1,23 @@
 package generators
 
-import "fmt"
+import (
+	"fmt"
+
+	"github.com/welschmorgan/datagen/pkg/generator"
+)
 
 type CacheGenFunc func() (string, error)
 
 type CacheGenerator struct {
-	Generator
+	generator.Generator
 
 	name     string
-	options  *GeneratorOptions
+	options  *generator.GeneratorOptions
 	gen_func CacheGenFunc
 	seen     []string
 }
 
-func NewCacheGenerator(options *GeneratorOptions, name string, gen_func CacheGenFunc) *CacheGenerator {
+func NewCacheGenerator(options *generator.GeneratorOptions, name string, gen_func CacheGenFunc) *CacheGenerator {
 	return &CacheGenerator{
 		name:     name,
 		options:  options,
@@ -29,7 +33,7 @@ func (g *CacheGenerator) SetName(v string) {
 	g.name = v
 }
 
-func (g *CacheGenerator) GetOptions() *GeneratorOptions {
+func (g *CacheGenerator) GetOptions() *generator.GeneratorOptions {
 	return g.options
 }
 

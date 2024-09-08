@@ -19,6 +19,7 @@ import (
 
 	"github.com/welschmorgan/datagen/pkg/cache"
 	"github.com/welschmorgan/datagen/pkg/config"
+	"github.com/welschmorgan/datagen/pkg/generator"
 	"github.com/welschmorgan/datagen/pkg/generators"
 	"github.com/welschmorgan/datagen/pkg/models"
 	"github.com/welschmorgan/datagen/pkg/seed"
@@ -26,75 +27,6 @@ import (
 
 func DBPath() string {
 	return fmt.Sprintf("%s/%s", cache.RootCacheDir(), "resources.db")
-}
-
-func GeneratorForResource(options *generators.GeneratorOptions, res *models.Resource, reg *generators.Registry) (generators.Generator, error) {
-	parts := []interface{}{}
-	if res.GeneratorName != nil {
-		parts = append(parts, *res.GeneratorName)
-	}
-	if res.Template != nil {
-		for _, arg := range strings.Split(*res.Template, ":") {
-			parts = append(parts, arg)
-		}
-	}
-	if res.GeneratorName != nil {
-		typeName := parts[0]
-		gen_alloc, err := reg.GetType(typeName.(string))
-		if err != nil {
-			return nil, err
-		}
-		return gen_alloc(options, parts...)
-	}
-	return nil, nil
-}
-
-func allocateGeneratorPattern(options *generators.GeneratorOptions, params ...any) (generators.Generator, error) {
-	pattern, err := generators.ParsePattern(params...)
-	if err != nil {
-		return nil, err
-	}
-	return generators.NewPatternGenerator(options, pattern), nil
-}
-
-func allocateGeneratorUnion(db *sql.DB, resGetter func(name string) generators.Generator) generators.GeneratorAllocator {
-	return func(options *generators.GeneratorOptions, params ...any) (generators.Generator, error) {
-		variants, err := generators.ParseUnion(params...)
-		if err != nil {
-			return nil, err
-		}
-		return generators.NewUnionGenerator(db, options, variants, resGetter), nil
-	}
-}
-
-func allocateGeneratorIntRange(options *generators.GeneratorOptions, params ...any) (generators.Generator, error) {
-	r, err := generators.ParseRangeArgs(params...)
-	if err != nil {
-		return nil, err
-	}
-	return generators.NewIntRangeGenerator(options, r), nil
-}
-
-func allocateGeneratorRandomDB(db *sql.DB) generators.GeneratorAllocator {
-	return func(options *generators.GeneratorOptions, params ...any) (generators.Generator, error) {
-		expectedArgs := 3
-		expectedArgNames := "'random_row', table, filter"
-		args, err := generators.ParseStrings(expectedArgs, params...)
-		if len(args) != expectedArgs {
-			return nil, fmt.Errorf("invalid arguments to RandomDBRowGenerator, expected %d args (%s) but got %d\n%s", expectedArgs, expectedArgNames, len(args), err)
-		}
-		if err != nil {
-			return nil, err
-		}
-		tableName := args[1]
-		parts := strings.Split(args[2], "=")
-		if len(parts) != 2 {
-			return nil, fmt.Errorf("invalid arguments to RandomDBRowGenerator, tableFilter is invalid. Expected 'column=value' but got '%s'", args[1])
-		}
-		tableFilterKey := parts[0]
-		tableFilterValue := parts[1]
-		return generators.NewRandomDBRowGenerator(options, db, tableName, tableFilterKey, tableFilterValue)
-	}
 }
 
 type App struct {
@@ -158,10 +90,10 @@ func (a *App) Init() error {
 	}
 
 	a.reg = generators.NewRegistry()
-	a.reg.AddType(generators.INT_RANGE_GENERATOR_NAME, allocateGeneratorIntRange)
-	a.reg.AddType(generators.RANDOM_DB_ROW_GENERATOR_NAME, allocateGeneratorRandomDB(a.db))
-	a.reg.AddType(generators.PATTERN_GENERATOR_NAME, allocateGeneratorPattern)
-	a.reg.AddType(generators.UNION_GENERATOR_NAME, allocateGeneratorUnion(a.db, func(name string) generators.Generator {
+	a.reg.AddType(generators.INT_RANGE_GENERATOR_NAME, generators.AllocateGeneratorIntRange)
+	a.reg.AddType(generators.RANDOM_DB_ROW_GENERATOR_NAME, generators.AllocateGeneratorRandomDB(a.db))
+	a.reg.AddType(generators.PATTERN_GENERATOR_NAME, generators.AllocateGeneratorPattern)
+	a.reg.AddType(generators.UNION_GENERATOR_NAME, generators.AllocateGeneratorUnion(a.db, func(name string) generator.Generator {
 		res, err := a.GetResource(name)
 		if err != nil {
 			log.Printf("Failed to get variant '%s' generator, %s", name, err)
@@ -178,7 +110,7 @@ func (a *App) Init() error {
 			tpl = *r.Template
 		}
 		if r.GeneratorName != nil {
-			if g, err := GeneratorForResource(&a.options.generator, r, a.reg); err != nil {
+			if g, err := generators.GeneratorForResource(&a.options.generator, r, a.reg); err != nil {
 				slog.Error(fmt.Sprintf("Invalid resource #%d '%s'", r.Id, r.Name), "err", err, "generator", *r.GeneratorName, "template", tpl)
 			} else {
 				r.Generator = g
@@ -203,7 +135,7 @@ func (a *App) GetResource(name string) (*models.Resource, error) {
 func (a *App) Generate() error {
 	type Result struct {
 		resource  *models.Resource
-		generator generators.Generator
+		generator generator.Generator
 		round     int
 		value     string
 	}

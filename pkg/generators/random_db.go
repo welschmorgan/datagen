@@ -4,6 +4,8 @@ import (
 	"database/sql"
 	"fmt"
 	"math/rand/v2"
+
+	"github.com/welschmorgan/datagen/pkg/generator"
 )
 
 const RANDOM_DB_ROW_GENERATOR_NAME = "random_row"
@@ -11,7 +13,7 @@ const RANDOM_DB_ROW_GENERATOR_NAME = "random_row"
 type RandomDBRowGenerator struct {
 	*CacheGenerator
 
-	options *GeneratorOptions
+	options *generator.GeneratorOptions
 	db      *sql.DB
 
 	name string
@@ -24,7 +26,7 @@ type RandomDBRowGenerator struct {
 	seen   []string
 }
 
-func NewRandomDBRowGenerator(options *GeneratorOptions, db *sql.DB, tableName, tableFilterKey, tableFilterValue string) (*RandomDBRowGenerator, error) {
+func NewRandomDBRowGenerator(options *generator.GeneratorOptions, db *sql.DB, tableName, tableFilterKey, tableFilterValue string) (*RandomDBRowGenerator, error) {
 	ret := &RandomDBRowGenerator{
 		options: options,
 		db:      db,

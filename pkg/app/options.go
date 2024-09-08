@@ -6,14 +6,14 @@ import (
 	"strings"
 
 	"github.com/welschmorgan/datagen/pkg/config"
-	"github.com/welschmorgan/datagen/pkg/generators"
+	"github.com/welschmorgan/datagen/pkg/generator"
 	"github.com/welschmorgan/datagen/pkg/models"
 )
 
 const DEFAULT_ITEMS_COUNT = 100
 
 type OutputFormatter interface {
-	fmt(r *models.Resource, g generators.Generator, round int, value string) string
+	fmt(r *models.Resource, g generator.Generator, round int, value string) string
 }
 
 type DefaultOutputFormatter struct {
@@ -24,7 +24,7 @@ func NewDefaultOutputFormatter() *DefaultOutputFormatter {
 	return &DefaultOutputFormatter{}
 }
 
-func (f *DefaultOutputFormatter) fmt(r *models.Resource, g generators.Generator, round int, value string) string {
+func (f *DefaultOutputFormatter) fmt(r *models.Resource, g generator.Generator, round int, value string) string {
 	return fmt.Sprintf("[%s:%s #%d] %s", r.Name, g.GetName(), round, value)
 }
 
@@ -33,7 +33,7 @@ type Options struct {
 	resources   ResourceList
 	count       int
 	output      OutputFormatter
-	generator   generators.GeneratorOptions
+	generator   generator.GeneratorOptions
 	seed        bool
 	resetConfig bool
 	configPath  string
@@ -59,7 +59,7 @@ func ParseOptions() *Options {
 		resources:   []string{},
 		output:      NewDefaultOutputFormatter(),
 		count:       0,
-		generator:   *generators.NewGeneratorOptions(),
+		generator:   *generator.NewGeneratorOptions(),
 		seed:        false,
 		resetConfig: false,
 		configPath:  config.DefaultPath(),

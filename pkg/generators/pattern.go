@@ -3,6 +3,8 @@ package generators
 import (
 	"fmt"
 	"strings"
+
+	"github.com/welschmorgan/datagen/pkg/generator"
 )
 
 const PATTERN_GENERATOR_NAME = "pattern"
@@ -13,7 +15,7 @@ type PatternGenerator struct {
 	pattern string
 }
 
-func NewPatternGenerator(options *GeneratorOptions, pattern string) *PatternGenerator {
+func NewPatternGenerator(options *generator.GeneratorOptions, pattern string) *PatternGenerator {
 	matchId := 0
 	ranges := map[string]Range[int64]{}
 	evaledPattern := PatternRange.ReplaceAllStringFunc(pattern, func(match string) string {
