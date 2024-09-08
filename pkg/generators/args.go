@@ -2,6 +2,9 @@ package generators
 
 import (
 	"fmt"
+	"math/rand/v2"
+	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 )
@@ -20,9 +23,87 @@ func ParseUnion(params ...any) (pattern []string, err error) {
 	return strings.Split(params[1].(string), "|"), nil
 }
 
-func ParseRange(params ...any) (min, max int64, err error) {
+type Range[T any] interface {
+	Rand() T
+	RandPadded() string
+}
+
+var PatternRange = regexp.MustCompile(`(\d+\.\.\d+[\!\d\|]*|[\d\|]+)`)
+
+type IntRange struct {
+	Range[int64]
+
+	min int64
+	max int64
+
+	exclude []int64
+
+	minLen int
+	maxLen int
+}
+
+func (r *IntRange) String() string {
+	excludes := ""
+	if len(r.exclude) > 0 {
+		excludes = "!"
+		for _, x := range r.exclude {
+			excludes = fmt.Sprintf("%s%d", excludes, x)
+		}
+	}
+	return fmt.Sprintf("%d..%d%s", r.min, r.max, excludes)
+}
+func (r *IntRange) Rand() int64 {
+	var val int64
+	for {
+		val = r.min + rand.Int64N(r.max-r.min)
+		if !slices.Contains(r.exclude, val) {
+			break
+		}
+	}
+	return val
+}
+func (r *IntRange) RandPadded() string {
+	val := fmt.Sprintf("%d", r.Rand())
+	pad := ""
+	if len(val) < r.minLen {
+		pad = strings.Repeat("0", r.minLen-len(val))
+	}
+	return fmt.Sprintf("%s%s", pad, val)
+}
+
+type DiscreteValues struct {
+	Range[int64]
+
+	values []int64
+	sizes  []int
+}
+
+func (r *DiscreteValues) String() string {
+	items := []string{}
+	for _, val := range r.values {
+		items = append(items, fmt.Sprintf("%d", val))
+	}
+	return strings.Join(items, "|")
+}
+
+func (r *DiscreteValues) Rand() int64 {
+	id := rand.IntN(len(r.values))
+	return r.values[id]
+}
+
+func (r *DiscreteValues) RandPadded() string {
+	id := rand.IntN(len(r.values))
+	val := fmt.Sprintf("%d", r.values[id])
+	pad := ""
+	if len(val) < r.sizes[id] {
+		pad = strings.Repeat("0", r.sizes[id]-len(val))
+	}
+	return fmt.Sprintf("%s%s", pad, val)
+}
+
+func ParseRangeArgs(params ...any) (r Range[int64], err error) {
 	if len(params) != 2 {
-		return -1, -1, fmt.Errorf("invalid arguments, expected ['generator_name', 'min..max'] but got %v", params)
+		return nil, fmt.Errorf("invalid arguments, expected ['generator_name', 'min..max'] but got %v", params)
 	}
 	var expr string
 	switch t := params[1].(type) {
@@ -31,21 +112,69 @@ func ParseRange(params ...any) (min, max int64, err error) {
 	case *string:
 		expr = *params[1].(*string)
 	default:
-		return -1, -1, fmt.Errorf("invalid argument 1, expected string but got %T", t)
+		return nil, fmt.Errorf("invalid argument 1, expected string but got %T", t)
 	}
-	parts := strings.Split(expr, "..")
-	if len(parts) != 2 {
-		return -1, -1, fmt.Errorf("invalid argument 1, expected 'min..max' but got '%s'", expr)
+	return ParseRange(expr)
+}
+
+func ParseRange(s string) (Range[int64], error) {
+	discreteValues := func(s string) (*DiscreteValues, error) {
+		parts := strings.Split(s, "|")
+		ret := &DiscreteValues{
+			values: []int64{},
+			sizes:  make([]int, len(parts)),
+		}
+		for i := range parts {
+			parts[i] = strings.TrimSpace(parts[i])
+			ret.sizes[i] = len(strings.TrimSpace(parts[i]))
+			val, err := strconv.ParseInt(parts[i], 10, 64)
+			if err != nil {
+				return nil, err
+			}
+			ret.values = append(ret.values, val)
+		}
+		return ret, nil
 	}
-	min, err = strconv.ParseInt(parts[0], 10, 64)
-	if err != nil {
-		return -1, -1, err
+	if strings.Contains(s, "..") {
+		parts := strings.Split(s, "..")
+		if len(parts) != 2 {
+			return nil, fmt.Errorf("invalid range, expected 'min..max' but got '%s'", s)
+		}
+		sizes := make([]int, len(parts))
+		for i := range parts {
+			parts[i] = strings.TrimSpace(parts[i])
+			sizes[i] = len(parts[i])
+		}
+		exclude := []int64{}
+		if strings.Contains(parts[1], "!") {
+			excludeParts := strings.Split(parts[1], "!")
+			parts[1] = excludeParts[0]
+			discrete, err := discreteValues(excludeParts[1])
+			if err != nil {
+				return nil, err
+			}
+			exclude = append(exclude, discrete.values...)
+		}
+		min, err := strconv.ParseInt(parts[0], 10, 64)
+		if err != nil {
+			return nil, err
+		}
+		max, err := strconv.ParseInt(parts[1], 10, 64)
+		if err != nil {
+			return nil, err
+		}
+		ret := &IntRange{
+			min: min,
+			max: max,
+
+			exclude: exclude,
+
+			minLen: sizes[0],
+			maxLen: sizes[1],
+		}
+		return ret, nil
 	}
-	max, err = strconv.ParseInt(parts[1], 10, 64)
-	if err != nil {
-		return -1, -1, err
-	}
-	return min, max, nil
+	return discreteValues(s)
 }
 
 func ParseStrings(minRequired int, params ...any) (args []string, err error) {

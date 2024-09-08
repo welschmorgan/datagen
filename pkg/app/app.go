@@ -68,11 +68,11 @@ func allocateGeneratorUnion(db *sql.DB, resGetter func(name string) generators.G
 }
 
 func allocateGeneratorIntRange(options *generators.GeneratorOptions, params ...any) (generators.Generator, error) {
-	min, max, err := generators.ParseRange(params...)
+	r, err := generators.ParseRangeArgs(params...)
 	if err != nil {
 		return nil, err
 	}
-	return generators.NewIntRangeGenerator(options, min, max), nil
+	return generators.NewIntRangeGenerator(options, r), nil
 }
 
 func allocateGeneratorRandomDB(db *sql.DB) generators.GeneratorAllocator {
