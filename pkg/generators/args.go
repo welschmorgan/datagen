@@ -24,6 +24,12 @@ func ParseUnion(params ...any) (pattern []string, err error) {
 }
 
 type Range[T any] interface {
+	Bounds() (T, T)
+	Min() T
+	Max() T
+
+	Exclusions() []T
+
 	Rand() T
 	RandPadded() string
 }
@@ -40,6 +46,24 @@ type IntRange struct {
 
 	minLen int
 	maxLen int
+}
+
+func (r *IntRange) Exclusions() []int64 {
+	return r.exclude
+}
+
+func (r *IntRange) Bounds() (int64, int64) {
+	return r.min, r.max
+}
+
+func (r *IntRange) Min() int64 {
+	min, _ := r.Bounds()
+	return min
+}
+
+func (r *IntRange) Max() int64 {
+	_, max := r.Bounds()
+	return max
 }
 
 func (r *IntRange) String() string {
@@ -76,6 +100,34 @@ type DiscreteValues struct {
 
 	values []int64
 	sizes  []int
+}
+
+func (r *DiscreteValues) Exclusions() []int64 {
+	return []int64{}
+}
+
+func (r *DiscreteValues) Bounds() (int64, int64) {
+	var min int64 = 99999
+	var max int64 = -99999
+	for _, v := range r.values {
+		if v < min {
+			min = v
+		}
+		if v > max {
+			max = v
+		}
+	}
+	return min, max
+}
+
+func (r *DiscreteValues) Min() int64 {
+	min, _ := r.Bounds()
+	return min
+}
+
+func (r *DiscreteValues) Max() int64 {
+	_, max := r.Bounds()
+	return max
 }
 
 func (r *DiscreteValues) String() string {

@@ -11,12 +11,12 @@ const NumTasks = 10_000
 
 func TestBatchProcessor(t *testing.T) {
 	startTime := time.Now()
-	tasks := []utils.Task{}
+	tasks := []*utils.Task[any, int]{}
 	for i := range NumTasks {
-		tasks = append(tasks, utils.Task{Id: i, Handler: func() int {
+		tasks = append(tasks, utils.NewTask(func(v any) int {
 			time.Sleep(5 * time.Microsecond)
 			return i
-		}})
+		}))
 	}
 	s := utils.NewScheduler(100, tasks...)
 	res := s.Run()
